@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "automl-iasd"
+version = "0.1.0"
+description = "A distributed AutoML framework"
+authors = ["Alban Tiacoh <alban.kdf@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+pyspark = "^3.1.2"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
