@@ -25,17 +25,6 @@ def apply_polynomial_expansion(dataframe, columns):
 	return dataframe#, output_columns
 
 
-def apply_unary_transformations(dataframe, columns, columns_type):
-	"""Apply all unary transformations on columns passed."""
-
-	# Polynomial expansion 
-	pass
-
-
-
-	# Normalizer 
-
-
 def apply_binary_transformation(dataframe, columns):
 	"""Apply all binary transformations on columns passed."""
 
@@ -59,8 +48,24 @@ def apply_binary_transformation(dataframe, columns):
 	return dataframe
 
 
-def apply_group_by_then_transformation(dataframe, columns):
+def apply_group_by_then_transformation(dataframe, categorical_column, numeric_column):
 	"""Apply all unary transformations on columns passed."""
 
+	# Min 
+	grouped_by_then_df = dataframe.groupBy(categorical_column).min(numeric_column).withColumnRenamed(f"min({numeric_column})",f"group_by_{categorical_column}_min_{numeric_column}")
+	dataframe = dataframe.join(grouped_by_then_df, [categorical_column])
 
+	# Max 
+	grouped_by_then_df = dataframe.groupBy(categorical_column).max(numeric_column).withColumnRenamed(f"max({numeric_column})",f"group_by_{categorical_column}_max_{numeric_column}")
+	dataframe = dataframe.join(grouped_by_then_df, [categorical_column])
+
+	# Avg 
+	grouped_by_then_df = dataframe.groupBy(categorical_column).avg(numeric_column).withColumnRenamed(f"avg({numeric_column})",f"group_by_{categorical_column}_avg_{numeric_column}")
+	dataframe = dataframe.join(grouped_by_then_df, [categorical_column])
+
+	# Mean 
+	grouped_by_then_df = dataframe.groupBy(categorical_column).mean(numeric_column).withColumnRenamed(f"mean({numeric_column})",f"group_by_{categorical_column}_mean_{numeric_column}")
+	dataframe = dataframe.join(grouped_by_then_df, [categorical_column])
+
+	return dataframe
 
