@@ -217,7 +217,7 @@ best_params = fmin(
 )
 
 # Now we retrain the model fully 
-best_logistic_regression = RandomForestClassifier(impurity=best_params["impurity"], numTrees=best_params["numTrees"], numTrees=best_params["maxDepth"])
+best_logistic_regression = RandomForestClassifier(impurity=best_params["impurity"], numTrees=best_params["numTrees"], maxDepth=best_params["maxDepth"])
 best_logistic_regression.setFeaturesCol(f"selectedFeatures")
 best_logistic_regression.setLabelCol(f"{label_column_name}")
 best_stages = auto_fe_stages.copy()
