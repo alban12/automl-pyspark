@@ -3,8 +3,7 @@ from pyspark.ml.linalg import Vectors
 from pyspark.ml.classification import LogisticRegression
 
 #Import optimizer 
-from hyperopt import hp
-from hyperopt import fmin, tpe, space_eval
+from hyperopt import fmin, tpe, hp, Trials, STATUS_OK, space_eval
 
 #Import data preprocessers 
 from pyspark.ml.feature import HashingTF, IDF, Tokenizer
@@ -32,6 +31,8 @@ from pyspark.ml.feature import VectorSlicer, VectorIndexer, StringIndexer
 from pyspark.ml.feature import Imputer
 import logging
 import random
+import mlflow # TODO
+#import featurestore # TODO 
 
 # Visualisation
 import matplotlib.pyplot as plt
@@ -40,6 +41,8 @@ import numpy as np
 # Tuning 
 from automl_iasd.hyperparameter_optimization.tuning import get_tuned_algorithm
 
+
+# Got to run for one algorithm only given by the user
 class IASDAutoML:
 	"""The central class containing the pipeline."""
 	def __init__(self, budget, dataframe, label_column_name, task="classification", training_only=False):
@@ -64,7 +67,7 @@ class IASDAutoML:
 			"MultilayerPerceptronClassifier" : []
 		}
 		
-	def run(self):
+	def run(self, regParam=0.0, elasticNetParam=0.0):
 		"""Run the AutoML pipeline.""" 
 		print("-------------------------------------------------------------")
 		print("---------------Starting the run of the pipeline--------------")
@@ -82,9 +85,6 @@ class IASDAutoML:
 		# at the end. thus, the train_dataframe = dataframe 
 		train_dataframe = dataframe
 
-		print("at copy")
-		print(train_dataframe.dtypes)
-		print(dataframe.dtypes)
 
 		logging.info("AutoFE : Data preprocessing - Performing eventual missing values imputation ... ")
 		numeric_column_with_null_value = get_numeric_columns_with_null_values(self.dataframe)
@@ -169,64 +169,108 @@ class IASDAutoML:
 
 		benchmark = []
 
-		for algorithm in self.classification_algorithms:
+		#algorithm = self.classification_algorithms[0]
 
-			algorithm_name = str(algorithm).split("_")[0]
-			algorithm.setLabelCol(f"{self.label_column_name}")
+		algorithm = LogisticRegression(regParam=regParam, elasticNetParam=elasticNetParam)
 
-			self.classification_algorithms_stages[algorithm_name] = pipeline_stages.copy()
+		algorithm_name = str(algorithm).split("_")[0]
+		algorithm.setLabelCol(f"{self.label_column_name}")
 
-
-			if algorithm_name == "DecisionTreeClassifier" or algorithm_name == "RandomForestClassifier":
-				self.classification_algorithms_stages[algorithm_name].append(labelIndexer)
-				algorithm.setLabelCol("indexedLabel")
-				maximum_number_of_categories = get_max_count_distinct(train_set_dataframe, categorical_columns_to_encode)
-				algorithm.setMaxBins(maximum_number_of_categories)
+		self.classification_algorithms_stages[algorithm_name] = pipeline_stages.copy()
 
 
-			logging.info(f"AutoFE : Feature selection - Selecting the best subset of features for {algorithm_name}... ")
-			bestScore, feature_selection = nrpa_feature_selector(level, iterations, train_set_dataframe, validation_set_dataframe, len(columns_to_featurized), algorithm, selection_initial_uniform_policy)
-			feature_selection_indices = [i for i in range(len(feature_selection)) if feature_selection[i]=="Keep"]
-			print(bestScore)
-			algorithm_fe_performance.append([algorithm_name, feature_selection_indices, bestScore])
+		if algorithm_name == "DecisionTreeClassifier" or algorithm_name == "RandomForestClassifier":
+			self.classification_algorithms_stages[algorithm_name].append(labelIndexer)
+			algorithm.setLabelCol("indexedLabel")
+			maximum_number_of_categories = get_max_count_distinct(train_set_dataframe, categorical_columns_to_encode)
+			algorithm.setMaxBins(maximum_number_of_categories)
 
-			#If the best score is from DecisionTree, :add to the pipeline the indexer, add the transformers to the pipeline throughout the script
 
-			feature_selector = VectorSlicer(inputCol="features", outputCol="selectedFeatures", indices=feature_selection_indices)
-			self.classification_algorithms_stages[algorithm_name].append(feature_selector)
+		logging.info(f"AutoFE : Feature selection - Selecting the best subset of features for {algorithm_name}... ")
+		bestScore, feature_selection = nrpa_feature_selector(level, iterations, train_set_dataframe, validation_set_dataframe, len(columns_to_featurized), algorithm, selection_initial_uniform_policy)
+		feature_selection_indices = [i for i in range(len(feature_selection)) if feature_selection[i]=="Keep"]
+		print(bestScore)
+		algorithm_fe_performance.append([algorithm_name, feature_selection_indices, bestScore])
 
-			if algorithm_name == "DecisionTreeClassifier" or algorithm_name == "RandomForestClassifier":
-				featureIndexer = VectorIndexer(inputCol="selectedFeatures", outputCol="indexedFeatures", maxCategories=32)
-				self.classification_algorithms_stages[algorithm_name].append(featureIndexer)
+		#If the best score is from DecisionTree, :add to the pipeline the indexer, add the transformers to the pipeline throughout the script
 
-			algorithm.setFeaturesCol(f"selectedFeatures")
-			self.classification_algorithms_stages[algorithm_name].append(algorithm)
-	
-			# TODO : Save the features 
+		feature_selector = VectorSlicer(inputCol="features", outputCol="selectedFeatures", indices=feature_selection_indices)
+		self.classification_algorithms_stages[algorithm_name].append(feature_selector)
 
-			tuned_algorithm_model, score = get_tuned_algorithm(train_dataframe, 
-				algorithm, 
-				algorithm_name, 
-				Pipeline(stages=self.classification_algorithms_stages[algorithm_name]),
-				number_of_features = len(feature_selection_indices),
-				type="CrossValidator",
-				task=self.task)
+		if algorithm_name == "DecisionTreeClassifier" or algorithm_name == "RandomForestClassifier":
+			featureIndexer = VectorIndexer(inputCol="selectedFeatures", outputCol="indexedFeatures", maxCategories=32)
+			self.classification_algorithms_stages[algorithm_name].append(featureIndexer)
 
-			benchmark.append([algorithm_name, tuned_algorithm_model, score])
+		algorithm.setFeaturesCol(f"selectedFeatures")
+		self.classification_algorithms_stages[algorithm_name].append(algorithm)
 
-		best_algorithm = benchmark[0][1]
-		best_score = benchmark[0][2]
-		for algo in benchmark[1:-1]:
-			if algo[0][2] > best_score:
-				best_algorithm = algo[0][1]
+		# TODO : Save the features 
 
-		logging.info("AutoFE : Evaluating the performance of the best found model on the test set ... ")
-		best_algorithm.setLabelCol(f"{self.label_column_name}")
-		prediction = best_algorithm.transform(test_set_dataframe)
+		hpo_train_dataframe, hpo_val_dataframe = train_dataframe.randomSplit([0.7,0.3])
+
+		pipeline = Pipeline(stages=self.classification_algorithms_stages[algorithm_name])
+		model = pipeline.fit(hpo_train_dataframe)
+
+		logging.info("AutoFE : Evaluating the performance of the model on the hpo val set ... ")
+		#model.setLabelCol(f"{self.label_column_name}")
+		predictions = model.transform(hpo_val_dataframe)
 		evaluator = BinaryClassificationEvaluator(metricName='areaUnderROC')
-		print(f"The AUC error on the test set is : {evaluator.evaluate(prediction)}")
+		evaluator.setLabelCol(f"{self.label_column_name}")
 
-		return model
+		aucroc = evaluator.evaluate(predictions)
+		print(f"The AUC error on the val set is : {aucroc}")
+
+		return model, aucroc, test_set_dataframe
+
+
+	def train_with_hyperopt(self, params):
+		""" 
+		
+		Objective function to minimize with the best params
+
+		:param params: hyperparameters as a dict. Its structure is consistent with how search space is defined. See below.
+  		:return: dict with fields 'loss' (scalar loss) and 'status' (success/failure status of run)
+		"""
+		regParam = params["regParam"]
+		elasticNetParam = params["elasticNetParam"]
+		model, aucroc = self.run(regParam, elasticNetParam)
+		loss = - aucroc
+		return {'loss': loss, 'status': STATUS_OK}
+	
+	def run_with_hyperopt(self):
+		""" """
+		algo=tpe.suggest
+		# Compute the feature selection and the vanilla model
+		baseline_model, baseline_aucroc, test_set_dataframe = self.run()
+
+		# Add some hyperparameter optimization configuration
+		space = {
+		  'regParam': hp.uniform('regParam', 0.0, 3.0),
+		  'elasticNetParam': hp.uniform('elasticNetParam', 0.0, 1.0),
+		}
+
+		best_params = fmin(
+		    fn=self.train_with_hyperopt,
+		    space=space,
+		    algo=algo,
+		    max_evals=8
+		) 
+
+		best_regParam = best_params["regParam"]
+		best_elasticNetParam = best_params["elasticNetParam"]
+
+		# 
+		final_model, val_aucroc = self.run(best_regParam, best_elasticNetParam)
+
+		evaluator = MulticlassClassificationEvaluator(labelCol="indexedLabel", metricName="f1")
+ 
+		baseline_model_test_metric = evaluator.evaluate(baseline_model.transform(test_data))
+		final_model_test_metric = evaluator.evaluate(final_model.transform(test_data))
+		 
+		print(f"On the test data, the initial (untuned) model achieved F1 score {initial_model_test_metric}, and the final (tuned) model achieved {final_model_test_metric}.")
+
+		return final_model, val_aucroc
+
 
 	def generate_dataframe_for_selection(self):
 		"""Run the AutoML pipeline.""" 
