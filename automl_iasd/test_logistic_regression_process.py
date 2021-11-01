@@ -25,7 +25,10 @@ from feature_engineering.transformations import apply_discretization, apply_poly
 from feature_engineering.selection import nrpa_feature_selector
 from pyspark.ml.evaluation import BinaryClassificationEvaluator
 from hyperopt import fmin, tpe, hp, Trials, STATUS_OK
+from pyspark.ml.feature import VectorSlicer, VectorIndexer, StringIndexer
+from pyspark.ml import Pipeline
 import logging
+import random
 
 # Load the dataset
 dataframe = spark.read.parquet("s3://automl-iasd/airlines/dataset/airlines.parquet/")
@@ -48,6 +51,8 @@ def generate_best_feature_subset(full_train_set_dataframe, label_column_name, ta
 
 	train_set_dataframe_for_selection = full_train_set_dataframe
 	train_set_dataframe_for_selection.cache()
+	pipeline_stages = []
+	budget = int(budget)        
 
 	logging.info("AutoFE : Data preprocessing - Performing eventual missing values imputation ... ")
 	numeric_column_with_null_value = get_numeric_columns_with_null_values(train_set_dataframe_for_selection)
@@ -102,6 +107,7 @@ def generate_best_feature_subset(full_train_set_dataframe, label_column_name, ta
 		feature_generation_budget-=1
 
 	logging.info("AutoFE : Feature generation - Creating feature column ... ")
+	columns_to_featurized = dataframe.schema.names        
 	columns_to_featurized = [ele for ele in columns_to_featurized if ele not in [label_column_name,*numeric_column_with_null_value,*categorical_column_with_null_value, *categorical_columns_to_encode]]
 	train_set_dataframe_for_selection, feature_assembler = create_features_column(train_set_dataframe_for_selection, columns_to_featurized)
 	pipeline_stages.append(feature_assembler)
@@ -116,9 +122,9 @@ def generate_best_feature_subset(full_train_set_dataframe, label_column_name, ta
 	train_set_dataframe_for_selection, validation_set_dataframe_for_selection, = train_set_dataframe_for_selection.randomSplit([0.75,0.25])
 
 	# Baseline algorithm for evaluation
-	algorithm = LogisticRegression(regParam=regParam, elasticNetParam=elasticNetParam)
+	algorithm = LogisticRegression(maxIter=20)
 	algorithm_name = str(algorithm).split("_")[0]
-	algorithm.setLabelCol(f"{slabel_column_name}")
+	algorithm.setLabelCol(f"{label_column_name}")
 
 	# Metrics for Monte Carlo search
 	selection_initial_uniform_policy = [0.5 for _ in range(2*len(columns_to_featurized))]
@@ -142,16 +148,22 @@ def generate_best_feature_subset(full_train_set_dataframe, label_column_name, ta
 	return stages, feature_selection, feature_selection_indices, bestScore
 
 
-stages, feature_selection, feature_selection_indices, bestScore = generate_best_feature_subset(full_train_set_dataframe, label_column_name, task, budget)
+auto_fe_stages, feature_selection, feature_selection_indices, bestScore = generate_best_feature_subset(full_train_set_dataframe, label_column_name, task, budget)
 # Divide again the training set for HPO validation
-train_set_dataframe_for_hpo, validation_set_dataframe_for_hpo = full_train_set_dataframe.split([0.7,0.3])
+train_set_dataframe_for_hpo, validation_set_dataframe_for_hpo = full_train_set_dataframe.randomSplit([0.7,0.3])
 
 
 def train_logistic_regression(regParam, elasticNetParam):
 
-
-	algorithm = LogisticRegression(regParam, elasticNetParam)
+	# Unlink objects
+	stages = auto_fe_stages.copy()
+	# train_set_dataframe_for_hpo.copy()
+	print(f"regParam : {regParam}")
+	print(f"elasticNetParam : {elasticNetParam}")
+	algorithm = LogisticRegression(regParam=regParam, elasticNetParam=elasticNetParam)
 	algorithm.setFeaturesCol(f"selectedFeatures")
+	algorithm.setLabelCol(f"{label_column_name}")
+	algorithm.setMaxIter(25)
 	stages.append(algorithm)
 
 	print(stages)
@@ -159,8 +171,24 @@ def train_logistic_regression(regParam, elasticNetParam):
 	pipeline = Pipeline(stages=stages)
 	model = pipeline.fit(train_set_dataframe_for_hpo)
 
+
+	logging.info("BASELINE - AutoFE : Evaluating the performance of the model on the HPO val set ... ")
+	lr = LogisticRegression(regParam=0.34534, elasticNetParam=0.53242)
+	lr.setFeaturesCol(f"selectedFeatures")
+	lr.setLabelCol(f"{label_column_name}")
+	baseline_stages = auto_fe_stages.copy()
+	baseline_stages.append(lr)
+	baseline_pipeline = Pipeline(stages=baseline_stages)
+	baseline_model = baseline_pipeline.fit(train_set_dataframe_for_hpo)
+	baseline_predictions = baseline_model.transform(validation_set_dataframe_for_hpo)
+	baseline_evaluator = BinaryClassificationEvaluator(metricName='areaUnderROC')
+	baseline_evaluator.setLabelCol(f"{label_column_name}")
+	baseline_auroc = baseline_evaluator.evaluate(baseline_predictions)
+	print(f"BASELINE - The AUC error on the val set with a step for feature selection is : {baseline_auroc}")
+
 	logging.info("AutoFE : Evaluating the performance of the model on the HPO val set ... ")
 	predictions = model.transform(validation_set_dataframe_for_hpo)
+	#predictions.show(5)
 	evaluator = BinaryClassificationEvaluator(metricName='areaUnderROC')
 	evaluator.setLabelCol(f"{label_column_name}")
 	aucroc = evaluator.evaluate(predictions)
@@ -184,8 +212,8 @@ def train_with_hyperopt(params):
 
 
 space = {
-  'regParam': hp.uniform('regParam', 0.0, 3.0),
-  'elasticNetParam': hp.uniform('elasticNetParam', 0.0, 1.0),
+  'regParam': hp.uniform('regParam', 0.0, 0.03*float(budget)),
+  'elasticNetParam': hp.uniform('elasticNetParam', 0.0, 0.02*float(budget)),
 }
 
 algo=tpe.suggest
