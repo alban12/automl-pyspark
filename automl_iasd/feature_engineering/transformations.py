@@ -2,10 +2,7 @@ from pyspark.ml.feature import QuantileDiscretizer, PolynomialExpansion
 from pyspark.sql.functions import col
 from pyspark.sql.functions import when
 from pyspark.ml.feature import VectorAssembler
-from feature_engineering.util import get_init_param_from_meta_learning
 from automl_iasd.feature_engineering.transformers import ArithmeticTransformer, GroupByThenTransformer
-
-
 
 def apply_discretization(dataframe, columns):
 	"""Apply discretization."""
@@ -46,23 +43,6 @@ def apply_binary_transformation(dataframe, columns):
 
 def apply_group_by_then_transformation(dataframe, categorical_column, numeric_column):
 	"""Apply all unary transformations on columns passed."""
-
-	# Min 
-	#grouped_by_then_df = dataframe.groupBy(categorical_column).min(numeric_column).withColumnRenamed(f"min({numeric_column})",f"group_by_{categorical_column}_min_{numeric_column}")
-	#dataframe = dataframe.join(grouped_by_then_df, [categorical_column])
-
-	# Max 
-	#grouped_by_then_df = dataframe.groupBy(categorical_column).max(numeric_column).withColumnRenamed(f"max({numeric_column})",f"group_by_{categorical_column}_max_{numeric_column}")
-	#dataframe = dataframe.join(grouped_by_then_df, [categorical_column])
-
-	# Avg 
-	#grouped_by_then_df = dataframe.groupBy(categorical_column).avg(numeric_column).withColumnRenamed(f"avg({numeric_column})",f"group_by_{categorical_column}_avg_{numeric_column}")
-	#dataframe = dataframe.join(grouped_by_then_df, [categorical_column])
-
-	# Count 
-	#if f"group_by_{categorical_column}_count" not in dataframe.schema.names:
-	#	grouped_by_then_df = dataframe.groupBy(categorical_column).count().withColumnRenamed(f"count",f"group_by_{categorical_column}_count")
-	#	dataframe = dataframe.join(grouped_by_then_df, [categorical_column])
 
 	group_by_then_transformer = GroupByThenTransformer(inputCols=[categorical_column, numeric_column], outputCols=["min", "max", "avg", "count"])
 	dataframe = group_by_then_transformer.transform(dataframe)

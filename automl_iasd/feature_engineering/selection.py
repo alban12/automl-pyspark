@@ -1,7 +1,7 @@
 import random 
 import math
 from pyspark.ml.evaluation import BinaryClassificationEvaluator
-from pyspark.ml.feature import VectorSlicer
+from pyspark.ml.feature import VectorSlicer, VectorIndexer
 # Filter based selector 
 from pyspark.ml.feature import ChiSqSelector
 from pyspark.ml.feature import RFormula
@@ -44,6 +44,30 @@ def nrpa_feature_selector(level, iterations, train_set_dataframe, validation_set
 			seq = new
 		policy = adapt(policy, seq, feature_space_size, train_set_dataframe, validation_set_dataframe)
 	return best_score, seq
+
+
+def snrpa_feature_selector(level, iterations, P, train_set_dataframe, validation_set_dataframe, feature_space_size, learning_algorithm, policy): 
+	if level == 0:
+		root = SelectionState(selected_features=[], not_selected_features=[], to_select_features=list(range(feature_space_size)), train_set_dataframe=train_set_dataframe, validation_set_dataframe=validation_set_dataframe)
+		return playout(root, policy, learning_algorithm)
+	elif level == 1:
+		best_score = float('-inf')
+		for _ in range(P):
+			result, new = snrpa_feature_selector(level-1, iterations, P, train_set_dataframe, validation_set_dataframe, feature_space_size, learning_algorithm, policy)
+			if result>=best_score:
+				best_score = result
+				seq = new
+		return best_score, seq
+	else:
+		best_score = float("-inf")
+		for N in range(iterations):
+			result, new = snrpa_feature_selector(level-1, iterations, P, train_set_dataframe, validation_set_dataframe, feature_space_size, learning_algorithm, policy)
+			if result>=best_score:
+				best_score = result
+				seq = new
+			policy = adapt(policy, seq, feature_space_size, train_set_dataframe, validation_set_dataframe)
+		return best_score, seq
+
 
 def playout(state, policy, learning_algorithm):
 	sequence = []
@@ -96,16 +120,34 @@ def score(state, learning_algorithm):
 	train_set_dataframe = state.train_set_dataframe
 	validation_set_dataframe = state.validation_set_dataframe
 	selected_features = state.selected_features
+	input_features_col = "features"
+	learning_algorithm_name = str(learning_algorithm).split("_")[0]
 
-	selector = VectorSlicer(inputCol="features", outputCol="selectedFeatures", indices=selected_features)
+	selector = VectorSlicer(inputCol=input_features_col, outputCol="selectedFeatures", indices=selected_features)
 	training_df = selector.transform(train_set_dataframe)
 	validation_df = selector.transform(validation_set_dataframe)
-
 	learning_algorithm.setFeaturesCol(f"selectedFeatures")
+
+	if learning_algorithm_name == "DecisionTreeClassifier" or learning_algorithm_name == "RandomForestClassifier":
+		featureIndexer = VectorIndexer(inputCol="selectedFeatures", outputCol="indexedFeatures", maxCategories=32)
+		fi_tr = featureIndexer.fit(training_df)
+		fi_va = featureIndexer.fit(validation_df)
+		training_df = fi_tr.transform(training_df)
+		validation_df = fi_va.transform(validation_df)
+		learning_algorithm.setFeaturesCol("indexedFeatures")
+
+	if learning_algorithm_name == "MultilayerPerceptronClassifier":
+		learning_algorithm.setLayers([len(selected_features), len(selected_features), 2])
+
+
 	model = learning_algorithm.fit(training_df)
 	prediction = model.transform(validation_df)
 
 	evaluator = BinaryClassificationEvaluator(metricName='areaUnderROC')
 	evaluator.setLabelCol(learning_algorithm.getLabelCol())
 	print(evaluator.evaluate(prediction))
+	print(selected_features)
 	return evaluator.evaluate(prediction)
+
+
+
