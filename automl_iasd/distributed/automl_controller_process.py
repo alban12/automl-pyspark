@@ -87,6 +87,7 @@ def executeAllThreads(dict_spark_submit_cmds, error_log_dir,
     if dict_success_app is None:
         dict_success_app = {app_name: False for app_name in 
             dict_spark_submit_cmds.keys()}
+    max_parallel=len(dict_spark_submit_cmds)
     with ThreadPoolExecutorWithQueueSizeLimit(maxsize=max_parallel, 
             max_workers=max_parallel) as executor:
         future_to_app_name = {
@@ -100,7 +101,6 @@ def executeAllThreads(dict_spark_submit_cmds, error_log_dir,
         for future in concurrent.futures\
                 .as_completed(future_to_app_name):
             app_name = future_to_app_name[future]
-            print(f"ok {app_name}")
             try:
                 dict_success_app[app_name] = future.result()
             except Exception as exc:
