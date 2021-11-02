@@ -1,6 +1,5 @@
 import json
 import subprocess
-from automl_iasd.distributed.parallelize import ThreadPoolExecutorWithQueueSizeLimit # TODO ; change to distributed.parallelize
 from pyspark.sql import SparkSession
 import click 
 import time
