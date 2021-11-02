@@ -116,7 +116,7 @@ def executeAllThreads(dict_spark_submit_cmds, error_log_dir,
 @click.option('--task', default="classification", help='The task associated with the dataset, can either be - classification, multinomial_classification, regression')
 @click.option('--budget', default=3, help='The budget "n" allowed for the run. (decomposed as follow : n/3 to apply binaryOperions, n/3 for feature selection and n/3 for HPO')
 @click.option('--training_only', default=False, help='State if the provided dataset is only for training purpose.')
-def distribute_algorithms(dataset_path, label_column_name, task, budget, training_only):
+def distribute_algorithms(dataset, label_column_name, task, budget, training_only):
 	# Define the algorithms - in correspondance with the task  
 	if task == "classification":
 		algorithms = ["logistic_regression", 
