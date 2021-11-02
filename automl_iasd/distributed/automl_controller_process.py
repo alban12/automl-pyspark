@@ -123,7 +123,6 @@ def distribute_algorithms(dataset_path, label_column_name, task, budget, trainin
 	# Define the algorithms - in correspondance with the task  
 	if task == "classification":
 		algorithms = ["logistic_regression", 
-			"decision_tree", 
 			"random_forest", 
 			"gradient_boosted_tree",  
 			"perceptron_multilayer",
