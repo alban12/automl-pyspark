@@ -2,7 +2,7 @@ import sys
 import findspark
 findspark.init()
 from pyspark.sql import SparkSession
-from pyspark.ml.classification import RandomForestClassifier 
+from pyspark.ml.classification import MultilayerPerceptronClassifier 
 from automl_iasd.feature_engineering.util import get_max_count_distinct
 from automl_iasd.feature_processing.util import get_numeric_columns_with_null_values, get_categorical_columns_with_null_values, get_categorical_columns, get_numeric_columns
 from automl_iasd.feature_processing.cleaning import fill_missing_values, remove_outliers
@@ -46,7 +46,7 @@ def generate_best_feature_subset(full_train_set_dataframe, label_column_name, ta
 			"MultilayerPerceptronClassifier" : []
 		}
 	classification_algorithms = [ # Could be good to find a better initialization 
-				RandomForestClassifier(maxDepth=2)
+				MultilayerPerceptronClassifier(layers=[5, 2, 2], seed=123)
 			]
 
 	train_set_dataframe_for_selection = full_train_set_dataframe
@@ -85,7 +85,6 @@ def generate_best_feature_subset(full_train_set_dataframe, label_column_name, ta
 	pipeline_stages.append(polynomial_assembler)
 	pipeline_stages.append(polynomial_expander)	
 
-
 	logging.info("AutoFE : Feature generation - Applying binary and group by then operators ... ")
 	# Binary transformations
 	feature_generation_budget = budget 
@@ -120,32 +119,18 @@ def generate_best_feature_subset(full_train_set_dataframe, label_column_name, ta
 	# At this point, all features have been generated and we can split the dataset to evaluate the features selection that will constitute the last stage of the pipeline
 	train_set_dataframe_for_selection, validation_set_dataframe_for_selection = train_set_dataframe_for_selection.randomSplit([0.75,0.25])
 
-	train_set_dataframe_for_selection.cache()
-	validation_set_dataframe_for_selection.cache()
-
-	labelIndexer = StringIndexer(inputCol=f"{label_column_name}", outputCol="indexedLabel")
-
-	li_tr = labelIndexer.fit(train_set_dataframe_for_selection)
-	li_va = labelIndexer.fit(validation_set_dataframe_for_selection)
-	train_set_dataframe_for_selection = li_tr.transform(train_set_dataframe_for_selection) 
-	validation_set_dataframe_for_selection = li_va.transform(validation_set_dataframe_for_selection)
-
-
-	algorithm = RandomForestClassifier()
+	# Baseline algorithm for evaluation
+	algorithm = MultilayerPerceptronClassifier(maxIter=30)
 	algorithm_name = str(algorithm).split("_")[0]
 	algorithm.setLabelCol(f"{label_column_name}")
-	classification_algorithms_stages[algorithm_name].append(labelIndexer)
-	algorithm.setLabelCol("indexedLabel")
-	maximum_number_of_categories = get_max_count_distinct(train_set_dataframe_for_selection, categorical_columns_to_encode)
-	algorithm.setMaxBins(maximum_number_of_categories)
 
+	# Metrics for Monte Carlo search
 	selection_initial_uniform_policy = [0.5 for _ in range(2*len(columns_to_featurized))]
 	selection_budget = budget
 	level = selection_budget
 	iterations = selection_budget
 	algorithm_fe_performance = []
 	benchmark = []
-
 	classification_algorithms_stages[algorithm_name] = pipeline_stages.copy()
 
 	logging.info(f"AutoFE : Feature selection - Selecting the best subset of features for {algorithm_name}... ")
@@ -158,35 +143,35 @@ def generate_best_feature_subset(full_train_set_dataframe, label_column_name, ta
 	classification_algorithms_stages[algorithm_name].append(feature_selector)
 	stages = classification_algorithms_stages[algorithm_name]
 
-	return stages, feature_selection, feature_selection_indices, bestScore, maximum_number_of_categories
+	return stages, feature_selection, feature_selection_indices, bestScore
 
 
-auto_fe_stages, feature_selection, feature_selection_indices, bestScore, maximum_number_of_categories = generate_best_feature_subset(full_train_set_dataframe, label_column_name, task, budget)
+auto_fe_stages, feature_selection, feature_selection_indices, bestScore = generate_best_feature_subset(full_train_set_dataframe, label_column_name, task, budget)
 # We divide again the training set for HPO validation
 train_set_dataframe_for_hpo, validation_set_dataframe_for_hpo = full_train_set_dataframe.randomSplit([0.7,0.3])
 
-def train_random_forest(impurity, numTrees, maxDepth):
+def train_multilayer_perceptron(solver, stepSize, layers):
 
 	# Unlink list
 	stages = auto_fe_stages.copy()
 
 	# Define the algorithm
-	algorithm = RandomForestClassifier(impurity=impurity, numTrees=numTrees, maxDepth=maxDepth)
+	algorithm = MultilayerPerceptronClassifier(solver=solver, stepSize=stepSize, layers=layers)
 	algorithm.setFeaturesCol(f"selectedFeatures")
 	algorithm.setLabelCol(f"{label_column_name}")
-	algorithm.setMaxBins(maximum_number_of_categories)
 	stages.append(algorithm)
 
 	pipeline = Pipeline(stages=stages)
 	model = pipeline.fit(train_set_dataframe_for_hpo)
 
-	logging.info("AutoFE : Evaluating the performance of the model on the HPO val set ... ")
+	logging.info("AutoML : Evaluating the performance of the model on the HPO val set ... ")
 	predictions = model.transform(validation_set_dataframe_for_hpo)
 	evaluator = BinaryClassificationEvaluator(metricName='areaUnderROC')
 	evaluator.setLabelCol(f"{label_column_name}")
 	aucroc = evaluator.evaluate(predictions)
 	print(f"The AUC error on the val set with a step for feature selection is : {aucroc}")
 	return model, aucroc
+
 
 def train_with_hyperopt(params):
 	""" 
@@ -197,18 +182,19 @@ def train_with_hyperopt(params):
 		:return: dict with fields 'loss' (scalar loss) and 'status' (success/failure status of run)
 	"""
 
-	impurity = params["impurity"]
-	numTrees = params["numTrees"]
-	maxDepth = params["maxDepth"]
+	solver = params["solver"]
+	stepSize = params["stepSize"]
+	layers = params["layers"]
 
-	model, aucroc = train_random_forest(impurity, numTrees, maxDepth)
+	model, aucroc = train_multilayer_perceptron(solver, stepSize, layers)
 	loss = - aucroc
 	return {'loss': loss, 'status': STATUS_OK}
 
+
 space = {
-  'impurity': hp.choice('impurity', ["gini", "entropy"]),
-  'numTrees': scope.int(hp.uniform('numTrees', 15, 25)),
-  'maxDepth': scope.int(hp.uniform('maxDepth', 4, 8))
+  'solver': hp.choice('solver', ["l-bfgs","gd"]),
+  'stepSize': hp.uniform('elasticNetParam', 0.015, 0.04*float(budget)),
+  'layers': hp.choice('layers', [ [len(selected_features), len(selected_features), 2], [len(selected_features), len(selected_features)*2, 2]])
 }
 
 algo=tpe.suggest
@@ -220,22 +206,23 @@ best_params = fmin(
 	max_evals=12
 )
 
-if best_params["impurity"] == 0:
-	impurity = "gini"
+if best_params["solver"] == 0:
+	solver = "l-bfgs"
 else:
-	impurity = "entropy"
+	solver = "gd"
 
-numTrees = int(best_params["numTrees"])
-maxDepth = int(best_params["maxDepth"])
+if best_params["layers"] == 0:
+	layers = [len(selected_features), len(selected_features), 2]
+else:
+	layers = [len(selected_features), len(selected_features)*2, 2]
+
 
 # Now we retrain the model fully 
-best_random_forest = RandomForestClassifier(impurity=impurity, numTrees=numTrees, maxDepth=maxDepth)
-best_random_forest.setFeaturesCol(f"selectedFeatures")
-best_random_forest.setLabelCol(f"{label_column_name}")
-best_random_forest.setMaxBins(maximum_number_of_categories)
-
+best_multilayer_perceptron = MultilayerPerceptronClassifier(solver=solver, layers=layers, stepSize=best_params["stepSize"])
+best_multilayer_perceptron.setFeaturesCol(f"selectedFeatures")
+best_multilayer_perceptron.setLabelCol(f"{label_column_name}")
 best_stages = auto_fe_stages.copy()
-best_stages.append(best_random_forest)
+best_stages.append(best_multilayer_perceptron)
 best_pipeline = Pipeline(stages=best_stages)
 best_model = best_pipeline.fit(full_train_set_dataframe)
 
@@ -245,20 +232,16 @@ predictions = best_model.transform(test_set_dataframe)
 evaluator = BinaryClassificationEvaluator(metricName='areaUnderROC')
 evaluator.setLabelCol(f"{label_column_name}")
 aucroc_on_test = evaluator.evaluate(predictions)
-print(f"The AUC error on the test set with a step for feature selection is : {aucroc}")
 
 # Send the metrics and model
 
 s3 = boto3.client('s3')
-json_object = {"Algorithm" : "RandomForest",
+json_object = {"Algorithm" : "MultilayerPerceptronClassifier",
 	"aucroc_on_test": aucroc_on_test
 }
 s3.put_object(
      Body=json.dumps(json_object),
      Bucket='automl_iasd',
-     Key=f'{model_path}/RandomForest_{aucroc_on_test}/metrics'
+     Key=f'{model_path}/MultilayerPerceptronClassifier_{aucroc_on_test}/metrics'
 )
-best_model.save(f"{model_path}/RandomForest_{aucroc_on_test}/model")
-
-
-
+best_model.save(f"{model_path}/MultilayerPerceptronClassifier_{aucroc_on_test}/model")

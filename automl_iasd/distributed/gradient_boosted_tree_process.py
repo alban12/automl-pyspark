@@ -2,7 +2,7 @@ import sys
 import findspark
 findspark.init()
 from pyspark.sql import SparkSession
-from pyspark.ml.classification import RandomForestClassifier 
+from pyspark.ml.classification import GBTClassifier 
 from automl_iasd.feature_engineering.util import get_max_count_distinct
 from automl_iasd.feature_processing.util import get_numeric_columns_with_null_values, get_categorical_columns_with_null_values, get_categorical_columns, get_numeric_columns
 from automl_iasd.feature_processing.cleaning import fill_missing_values, remove_outliers
@@ -41,12 +41,12 @@ def generate_best_feature_subset(full_train_set_dataframe, label_column_name, ta
 	classification_algorithms_stages = {
 			"DecisionTreeClassifier" : [],
 			"LogisticRegression" : [],
-			"RandomForestClassifier": [],
+			"GBTClassifier": [],
 			"NaiveBayes" : [],
 			"MultilayerPerceptronClassifier" : []
 		}
 	classification_algorithms = [ # Could be good to find a better initialization 
-				RandomForestClassifier(maxDepth=2)
+				GBTClassifier(maxDepth=2)
 			]
 
 	train_set_dataframe_for_selection = full_train_set_dataframe
@@ -131,7 +131,7 @@ def generate_best_feature_subset(full_train_set_dataframe, label_column_name, ta
 	validation_set_dataframe_for_selection = li_va.transform(validation_set_dataframe_for_selection)
 
 
-	algorithm = RandomForestClassifier()
+	algorithm = GBTClassifier()
 	algorithm_name = str(algorithm).split("_")[0]
 	algorithm.setLabelCol(f"{label_column_name}")
 	classification_algorithms_stages[algorithm_name].append(labelIndexer)
@@ -165,13 +165,13 @@ auto_fe_stages, feature_selection, feature_selection_indices, bestScore, maximum
 # We divide again the training set for HPO validation
 train_set_dataframe_for_hpo, validation_set_dataframe_for_hpo = full_train_set_dataframe.randomSplit([0.7,0.3])
 
-def train_random_forest(impurity, numTrees, maxDepth):
+def train_gradient_boosted_tree(minWeightFractionPerNode, minInstancesPerNode, maxDepth):
 
 	# Unlink list
 	stages = auto_fe_stages.copy()
 
 	# Define the algorithm
-	algorithm = RandomForestClassifier(impurity=impurity, numTrees=numTrees, maxDepth=maxDepth)
+	algorithm = GBTClassifier(minWeightFractionPerNode=minWeightFractionPerNode, minInstancesPerNode=minInstancesPerNode, maxDepth=maxDepth)
 	algorithm.setFeaturesCol(f"selectedFeatures")
 	algorithm.setLabelCol(f"{label_column_name}")
 	algorithm.setMaxBins(maximum_number_of_categories)
@@ -197,17 +197,17 @@ def train_with_hyperopt(params):
 		:return: dict with fields 'loss' (scalar loss) and 'status' (success/failure status of run)
 	"""
 
-	impurity = params["impurity"]
-	numTrees = params["numTrees"]
+	minWeightFractionPerNode = params["minWeightFractionPerNode"]
+	minInstancesPerNode = params["minInstancesPerNode"]
 	maxDepth = params["maxDepth"]
 
-	model, aucroc = train_random_forest(impurity, numTrees, maxDepth)
+	model, aucroc = train_gradient_boosted_tree(minWeightFractionPerNode, minInstancesPerNode, maxDepth)
 	loss = - aucroc
 	return {'loss': loss, 'status': STATUS_OK}
 
 space = {
-  'impurity': hp.choice('impurity', ["gini", "entropy"]),
-  'numTrees': scope.int(hp.uniform('numTrees', 15, 25)),
+  'minWeightFractionPerNode': hp.uniform('minWeightFractionPerNode', 0.0, 0.5),
+  'minInstancesPerNode': scope.int(hp.uniform('minInstancesPerNode', 0, 2)),
   'maxDepth': scope.int(hp.uniform('maxDepth', 4, 8))
 }
 
@@ -220,22 +220,17 @@ best_params = fmin(
 	max_evals=12
 )
 
-if best_params["impurity"] == 0:
-	impurity = "gini"
-else:
-	impurity = "entropy"
-
-numTrees = int(best_params["numTrees"])
+minInstancesPerNode = int(best_params["minInstancesPerNode"])
 maxDepth = int(best_params["maxDepth"])
 
 # Now we retrain the model fully 
-best_random_forest = RandomForestClassifier(impurity=impurity, numTrees=numTrees, maxDepth=maxDepth)
-best_random_forest.setFeaturesCol(f"selectedFeatures")
-best_random_forest.setLabelCol(f"{label_column_name}")
-best_random_forest.setMaxBins(maximum_number_of_categories)
+best_gradient_boosted_tree = GBTClassifier(minWeightFractionPerNode=best_params["minWeightFractionPerNode"], minInstancesPerNode=minInstancesPerNode, maxDepth=maxDepth)
+best_gradient_boosted_tree.setFeaturesCol(f"selectedFeatures")
+best_gradient_boosted_tree.setLabelCol(f"{label_column_name}")
+best_gradient_boosted_tree.setMaxBins(maximum_number_of_categories)
 
 best_stages = auto_fe_stages.copy()
-best_stages.append(best_random_forest)
+best_stages.append(best_gradient_boosted_tree)
 best_pipeline = Pipeline(stages=best_stages)
 best_model = best_pipeline.fit(full_train_set_dataframe)
 
@@ -250,15 +245,15 @@ print(f"The AUC error on the test set with a step for feature selection is : {au
 # Send the metrics and model
 
 s3 = boto3.client('s3')
-json_object = {"Algorithm" : "RandomForest",
+json_object = {"Algorithm" : "GradientBoostedTree",
 	"aucroc_on_test": aucroc_on_test
 }
 s3.put_object(
      Body=json.dumps(json_object),
      Bucket='automl_iasd',
-     Key=f'{model_path}/RandomForest_{aucroc_on_test}/metrics'
+     Key=f'{model_path}/GradientBoostedTree_{aucroc_on_test}/metrics'
 )
-best_model.save(f"{model_path}/RandomForest_{aucroc_on_test}/model")
+best_model.save(f"{model_path}/GradientBoostedTree_{aucroc_on_test}/model")
 
 
 
