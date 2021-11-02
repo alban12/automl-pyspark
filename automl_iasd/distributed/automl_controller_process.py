@@ -6,7 +6,6 @@ import click
 import time
 import concurrent.futures
 from queue import Queue
-import 
 
 ####################
 # Define utilities #
