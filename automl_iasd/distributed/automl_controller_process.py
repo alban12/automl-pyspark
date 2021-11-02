@@ -1,6 +1,5 @@
 import json
 import subprocess
-from pyspark.sql import SparkSession
 import click 
 import time
 import concurrent.futures
