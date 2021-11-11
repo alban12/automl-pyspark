@@ -15,15 +15,16 @@ def apply_polynomial_expansion(dataframe, columns):
 	"""Apply polynomial expansion."""
 	#output_columns = ["polynomial_expanded_"+col for col in columns]
 	output_columns = "_".join(columns)
+	vectorized_outpul_col = "vectorized_"+output_columns
 	polynomial_assembler = VectorAssembler(
 	    inputCols=columns,
-	    outputCol="vectorized_"+output_columns)
-
+	    outputCol=vectorized_outpul_col)
+	# Vectorized is used because polynomial expansion require the features to be in a grouped in a vector column
 	dataframe = polynomial_assembler.transform(dataframe)
 
 	polyExpansion = PolynomialExpansion(degree=3, inputCol="vectorized_"+output_columns, outputCol="feature_polynomially_expanded_"+output_columns)
 	dataframe = polyExpansion.transform(dataframe)
-	return dataframe, polynomial_assembler, polyExpansion#, output_columns
+	return dataframe, polynomial_assembler, polyExpansion, vectorized_outpul_col    #, output_columns
 
 
 def apply_binary_transformation(dataframe, columns):
@@ -35,7 +36,6 @@ def apply_binary_transformation(dataframe, columns):
 	outputCols = "_".join(columns)
 
 	arithmetic_transformer = ArithmeticTransformer(inputCols=columns, outputCols=[f"sum_{column_name}", f"difference_{column_name}", f"difference_{column_name_reverse}", f"multiplied_{column_name}", f"division_{column_name}", f"division_{column_name_reverse}"])
-
 	dataframe = arithmetic_transformer.transform(dataframe)
 
 	return dataframe, arithmetic_transformer
@@ -43,7 +43,6 @@ def apply_binary_transformation(dataframe, columns):
 
 def apply_group_by_then_transformation(dataframe, categorical_column, numeric_column):
 	"""Apply all unary transformations on columns passed."""
-
 	group_by_then_transformer = GroupByThenTransformer(inputCols=[categorical_column, numeric_column], outputCols=["min", "max", "avg", "count"])
 	dataframe = group_by_then_transformer.transform(dataframe)
 

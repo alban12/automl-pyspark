@@ -3,7 +3,7 @@ from pyspark.ml.evaluation import BinaryClassificationEvaluator
 import random
 
 def get_tuned_algorithm(train_set_dataframe, algorithm, algorithm_name, pipeline, number_of_features, type="CrossValidator" ,task="Classification"):
-
+	""" Compute the best model with hyperparameter optimization using grid search."""
 	train_set_dataframe, validation_set_dataframe = train_set_dataframe.randomSplit([0.8,0.2])
 	output_layer_size = 2
 	if task=="multinomialClassification":

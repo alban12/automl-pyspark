@@ -2,8 +2,9 @@ from pyspark.sql.functions import when
 from pyspark import keyword_only
 from pyspark.ml.pipeline import Transformer
 from pyspark.ml.param.shared import HasInputCol, HasInputCols, HasOutputCol, HasOutputCols, Param
+from pyspark.ml.util import DefaultParamsReadable, DefaultParamsWritable
 
-class ArithmeticTransformer(Transformer, HasInputCols, HasOutputCols):
+class ArithmeticTransformer(Transformer, HasInputCols, HasOutputCols, DefaultParamsReadable, DefaultParamsWritable):
     """A transformer that apply all arithmetic operations."""
 
     @keyword_only
@@ -50,7 +51,7 @@ class ArithmeticTransformer(Transformer, HasInputCols, HasOutputCols):
 
         return dataframe
 
-class GroupByThenTransformer(Transformer, HasInputCols, HasOutputCols):
+class GroupByThenTransformer(Transformer, HasInputCols, HasOutputCols, DefaultParamsReadable, DefaultParamsWritable):
     """A transformer that apply a group by on a categorial column and a aggregation on the numeric column."""
 
     @keyword_only

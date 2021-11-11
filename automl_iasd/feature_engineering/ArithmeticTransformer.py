@@ -2,8 +2,9 @@ from pyspark.sql.functions import when
 from pyspark import keyword_only
 from pyspark.ml.pipeline import Transformer
 from pyspark.ml.param.shared import HasInputCol, HasInputCols, HasOutputCol, HasOutputCols, Param
+from pyspark.ml.util import DefaultParamsReadable, DefaultParamsWritable
 
-class ArithmeticTransformer(Transformer, HasInputCols, HasOutputCols):
+class ArithmeticTransformer(Transformer, HasInputCols, HasOutputCols, DefaultParamsReadable, DefaultParamsWritable):
     """Limit Cardinality of a column."""
 
     @keyword_only
