@@ -150,16 +150,17 @@ def distribute_algorithms(dataset, label_column_name, task, metric, budget, trai
 		dataset_path = f"s3://automl-iasd/{dataset}/dataset/{dataset}_train.parquet/"
 	automl_instance_model_path = f"{dataset}/models/{process_instance_name}"
 
-
 	s3a_download = ""
+	driver_memory = ""
 
 	if not(on_aws_cluster):
 		s3a_download = f"--packages org.apache.hadoop:hadoop-aws:{spark_version}"
+		driver_memory = f"--driver-memory {usable_memory}"
 
 	# Create the appropriate spark-submit command 
 	dict_spark_submit_cmds = dict()
 	for i in range(len(algorithms)):
-	    spark_submit_cmd = f"spark-submit --driver-memory {usable_memory} {s3a_download} --name {app_names[i]} --conf spark.yarn.dist.archives=../dist/automl-iasd-0.1.0.tar.gz {task}_algorithms/{algorithms[i]}_process.py {dataset} {label_column_name} {task} {metric} {budget} {automl_instance_model_path} {training_only} {bucket_name} {iam_role} {AWS_ACCESS_KEY} {AWS_SECRET_KEY}"
+	    spark_submit_cmd = f"spark-submit {driver_memory} {s3a_download} --name {app_names[i]} --conf spark.yarn.dist.archives=../dist/automl-iasd-0.1.0.tar {task}_algorithms/{algorithms[i]}_process.py {dataset} {label_column_name} {task} {metric} {budget} {automl_instance_model_path} {training_only} {bucket_name} {iam_role} {AWS_ACCESS_KEY} {AWS_SECRET_KEY}"
 	    dict_spark_submit_cmds[app_names[i]] = spark_submit_cmd
 
 	print(dict_spark_submit_cmds)
