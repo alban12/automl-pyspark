@@ -105,7 +105,8 @@ def executeAllThreads(dict_spark_submit_cmds, error_log_dir,
 @click.option('--bucket_name', default="automl-iasd", help='Name of the bucket that contains the dataset and that will hold the results.')
 @click.option('--iam_role', default=None, help='AWS Ressource name of the role created for the feature store.')
 @click.option('--usable_memory', default="4g", help='If run in local, the memory size that the program can use. A size too small might gives out of space error (default size is 4g)')
-def distribute_algorithms(dataset, label_column_name, task, metric, budget, training_only, bucket_name, iam_role, usable_memory):
+@click.option('--on_aws_cluster', default=False, help='State if the script is launched on a AWS cluster')
+def distribute_algorithms(dataset, label_column_name, task, metric, budget, training_only, bucket_name, iam_role, usable_memory, on_aws_cluster):
 	""" """
 	# Define the algorithms - in correspondance with the task  
 	if task == "classification":
@@ -149,10 +150,16 @@ def distribute_algorithms(dataset, label_column_name, task, metric, budget, trai
 		dataset_path = f"s3://automl-iasd/{dataset}/dataset/{dataset}_train.parquet/"
 	automl_instance_model_path = f"{dataset}/models/{process_instance_name}"
 
+
+	s3a_download = ""
+
+	if not(on_aws_cluster):
+		s3a_download = f"--packages org.apache.hadoop:hadoop-aws:{spark_version}"
+
 	# Create the appropriate spark-submit command 
 	dict_spark_submit_cmds = dict()
 	for i in range(len(algorithms)):
-	    spark_submit_cmd = f"spark-submit --driver-memory {usable_memory} --packages org.apache.hadoop:hadoop-aws:{spark_version} --name {app_names[i]} --conf spark.yarn.dist.archives=../dist/automl-iasd-0.1.0.tar.gz {task}_algorithms/{algorithms[i]}_process.py {dataset} {label_column_name} {task} {metric} {budget} {automl_instance_model_path} {training_only} {bucket_name} {iam_role} {AWS_ACCESS_KEY} {AWS_SECRET_KEY}"
+	    spark_submit_cmd = f"spark-submit --driver-memory {usable_memory} {s3a_download} --name {app_names[i]} --conf spark.yarn.dist.archives=../dist/automl-iasd-0.1.0.tar.gz {task}_algorithms/{algorithms[i]}_process.py {dataset} {label_column_name} {task} {metric} {budget} {automl_instance_model_path} {training_only} {bucket_name} {iam_role} {AWS_ACCESS_KEY} {AWS_SECRET_KEY}"
 	    dict_spark_submit_cmds[app_names[i]] = spark_submit_cmd
 
 	print(dict_spark_submit_cmds)
