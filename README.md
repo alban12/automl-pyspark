@@ -1,6 +1,6 @@
 ![image info](./assets/homepage.png) 
 
-A distributed AutoML system for the IASD master's in apprenticeship thesis module.
+A distributed AutoML system for the IASD master's thesis module in apprenticeship.
 
 ## Installation
 
@@ -31,7 +31,7 @@ if you use Linux, you will have to do :
 if you use MacOS, you will have to do : 
 
 
-You will then need to set up your computer as a [single node cluster]. (https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/SingleCluster.html)
+You will then need to set up your computer as a [single node cluster](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/SingleCluster.html).
 
 If you run the tool on a EMR cluster, you will have to : bootstrap 
 
