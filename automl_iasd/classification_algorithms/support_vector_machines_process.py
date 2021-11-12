@@ -53,7 +53,7 @@ AWS_SECRET_KEY = sys.argv[11]
 # AWS_SECRET_KEY = os.getenv('AWS_SECRET_KEY')
 
 spark = SparkSession.builder.config('spark.hadoop.fs.s3a.access.key', AWS_ACCESS_KEY).config('spark.hadoop.fs.s3a.secret.key', AWS_SECRET_KEY).getOrCreate()
-spark.sparkContext.addPyFile("../automl_functions_package.py")
+spark.sparkContext.addPyFile("../dist/automl-iasd-0.1.0.tar")
 spark.sparkContext.setLogLevel("ERROR")
 
 if metric == "None":

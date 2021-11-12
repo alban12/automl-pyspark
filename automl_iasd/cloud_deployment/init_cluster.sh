@@ -8,11 +8,13 @@ sudo python3 -m pip install \
     matplotlib \
     hyperopt \
     boto3 \
-    numpy \
+    sagemaker \
     findspark \
     seaborn \
     sklearn \
     mlflow
+
+sudo python3 -m pip install -Iv numpy==1.21.2
 
 curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
 source $HOME/.poetry/env 
