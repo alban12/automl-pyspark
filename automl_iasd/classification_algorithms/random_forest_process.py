@@ -274,7 +274,7 @@ feature_store_session = Session(
     sagemaker_featurestore_runtime_client=featurestore_runtime
 )
 
-feature_group_name = f"{dataset}-feature-group-{algorithm_name}-" + strftime('%d-%H-%M-%S', gmtime()) 
+feature_group_name = f"{dataset}-{algorithm_name}-feature-group-" + strftime('%d-%H-%M-%S', gmtime()) 
 
 
 timestamp = float(round(time.time()))
@@ -286,7 +286,7 @@ features_to_define = [feature for feature in full_train_set_dataframe_with_selec
 
 print(features_to_define)
 
-feature_definitions = [FeatureDefinition(x[0],FeatureTypeEnum("Fractional")) if x[1] in ["double","float"] else FeatureDefinition(x[0],FeatureTypeEnum("Integer")) if x[1] in ["int"] else FeatureDefinition(x[0],FeatureTypeEnum("String")) for x in features_to_define]
+feature_definitions = [FeatureDefinition(x[0],FeatureTypeEnum("Fractional")) if x[1] in ["double","float"] else FeatureDefinition(x[0],FeatureTypeEnum("Integral")) if x[1] in ["int"] else FeatureDefinition(x[0],FeatureTypeEnum("String")) for x in features_to_define]
 
 feature_definitions.append(FeatureDefinition(f"{dataset}ID", FeatureTypeEnum("String")))
 feature_definitions.append(FeatureDefinition(f"EventTime", FeatureTypeEnum("String")))

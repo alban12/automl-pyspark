@@ -17,23 +17,30 @@ def fill_missing_values(numeric_columns_to_fill, categorical_columns_to_fill, da
 	numerical_fill_strategy = ["mean", "median", "mode"]
 	categorical_fill_strategy = ["most_common", "Unknown_filling"]
 	transformations = []
-	for strategy in numerical_fill_strategy:
-		imputed_features_names = [f"imputed_{strategy}_"+feature for feature in numeric_columns_to_fill]
-		imputer = Imputer(inputCols=[*numeric_columns_to_fill], outputCols=[*imputed_features_names])
-		model = imputer.fit(dataframe)
-		dataframe = model.transform(dataframe)
-		transformations.append(imputer)
+	if len(numeric_columns_to_fill)>0:
+		for strategy in numerical_fill_strategy:
+			imputed_features_names = [f"imputed_{strategy}_"+feature for feature in numeric_columns_to_fill]
+			imputer = Imputer(inputCols=[*numeric_columns_to_fill], outputCols=[*imputed_features_names])
+			model = imputer.fit(dataframe)
+			dataframe = model.transform(dataframe)
+			transformations.append(imputer)
 
-	for strategy in categorical_fill_strategy:
-		if strategy == "most_common":
-			for column in categorical_columns_to_fill:
-				most_common_feature_value = get_most_frequent_feature_value(dataframe, column)
-				dataframe = dataframe.withColumn(f"{strategy}_{column}", F.when(F.col(f"{column}").isNull() | F.isnan(F.col(f"{column}")) | F.col(f"{column}").contains('?') | F.col(f"{column}").contains('None')| F.col(f"{column}").contains('Null') | (F.col(f"{column}") == ''),most_common_feature_value).otherwise(dataframe[f"{column}"]))
-			transformations.append(imputer)
-		if strategy == "Unknown_filling":
-			for column in categorical_columns_to_fill:
-				dataframe = dataframe.withColumn(f"{strategy}_{column}", F.when(F.col(f"{column}").isNull() | F.isnan(F.col(f"{column}")) | F.col(f"{column}").contains('?') | F.col(f"{column}").contains('None')| F.col(f"{column}").contains('Null') | (F.col(f"{column}") == ''),"Unkown").otherwise(dataframe[f"{column}"]))
-			transformations.append(imputer)
+
+	if len(categorical_columns_to_fill)>0:
+		categorical_imputer = CategoricalImputer(inputCols=categorical_columns_to_fill, outputCols=categorical_fill_strategy)
+		dataframe = categorical_imputer.transform(dataframe)
+		transformations.append(categorical_imputer)
+
+	# for strategy in categorical_fill_strategy:
+	# 	if strategy == "most_common":
+	# 		for column in categorical_columns_to_fill:
+	# 			most_common_feature_value = get_most_frequent_feature_value(dataframe, column)
+	# 			dataframe = dataframe.withColumn(f"{strategy}_{column}", F.when(F.col(f"{column}").isNull() | F.isnan(F.col(f"{column}")) | F.col(f"{column}").contains('?') | F.col(f"{column}").contains('None')| F.col(f"{column}").contains('Null') | (F.col(f"{column}") == ''),most_common_feature_value).otherwise(dataframe[f"{column}"]))
+	# 		transformations.append(imputer)
+	# 	if strategy == "Unknown_filling":
+	# 		for column in categorical_columns_to_fill:
+	# 			dataframe = dataframe.withColumn(f"{strategy}_{column}", F.when(F.col(f"{column}").isNull() | F.isnan(F.col(f"{column}")) | F.col(f"{column}").contains('?') | F.col(f"{column}").contains('None')| F.col(f"{column}").contains('Null') | (F.col(f"{column}") == ''),"Unkown").otherwise(dataframe[f"{column}"]))
+	# 		transformations.append(imputer)
 	return dataframe, transformations
 
 def remove_outliers(dataframe, numerical_columns, bucket_name, label_column_name, dataset):
@@ -51,7 +58,7 @@ def remove_outliers(dataframe, numerical_columns, bucket_name, label_column_name
 	if len(numerical_columns)>2:
 	    pca = PCA(k=2, inputCol="initial_numerical_features", outputCol="pcaFeatures")
 	    model = pca.fit(dataframe)
-	    viz_dataframe = model.transform(dataframe).select("pcaFeatures", "Delay")
+	    viz_dataframe = model.transform(dataframe).select("pcaFeatures", label_column_name)
 	    x_train_pc1 = viz_dataframe.select("pcaFeatures").rdd.map(lambda x: x[:][0][0]).collect()
 	    x_train_pc2 = viz_dataframe.select("pcaFeatures").rdd.map(lambda x: x[:][0][1]).collect()
 	else:

@@ -10,7 +10,7 @@ from automl_iasd.data_preprocessing.encode import encode_categorical_features
 from automl_iasd.data_preprocessing.scaling  import normalize, standardize
 from automl_iasd.feature_engineering.transformations  import apply_discretization, apply_polynomial_expansion, apply_binary_transformation, apply_group_by_then_transformation, create_features_column
 from automl_iasd.feature_engineering.selection  import nrpa_feature_selector
-from pyspark.ml.evaluation import BinaryClassificationEvaluator
+from pyspark.ml.evaluation import RegressionEvaluator
 from hyperopt import fmin, tpe, hp, Trials, STATUS_OK
 from hyperopt.pyll import scope
 from pyspark.ml.feature import VectorSlicer, VectorIndexer, StringIndexer
@@ -110,7 +110,7 @@ def generate_best_feature_subset(full_train_set_dataframe, label_column_name, ta
 		train_set_dataframe_for_selection = dataframe.drop(*numerical_columns_with_missing_values)
 		train_set_dataframe_for_selection = dataframe.drop(*categorical_columns_with_missing_values)
 		for imputer in imputers:
-			pipeline_stages.append(imputers)
+			pipeline_stages.append(imputer)
 
 
 	# We don't want to process the label column, so we check if the label column is a string to see if it needs to be removed from the numerical or categorical columns
@@ -276,7 +276,7 @@ features_to_define = [feature for feature in full_train_set_dataframe_with_selec
 
 print(features_to_define)
 
-feature_definitions = [FeatureDefinition(x[0],FeatureTypeEnum("Fractional")) if x[1] in ["double","float"] else FeatureDefinition(x[0],FeatureTypeEnum("Integer")) if x[1] in ["int"] else FeatureDefinition(x[0],FeatureTypeEnum("String")) for x in features_to_define]
+feature_definitions = [FeatureDefinition(x[0],FeatureTypeEnum("Fractional")) if x[1] in ["double","float"] else FeatureDefinition(x[0],FeatureTypeEnum("Integral")) if x[1] in ["int"] else FeatureDefinition(x[0],FeatureTypeEnum("String")) for x in features_to_define]
 
 feature_definitions.append(FeatureDefinition(f"{dataset}ID", FeatureTypeEnum("String")))
 feature_definitions.append(FeatureDefinition(f"EventTime", FeatureTypeEnum("String")))
@@ -325,7 +325,10 @@ def train_logistic_regression(regParam, elasticNetParam):
 
 	logging.info("AutoML : Evaluating the performance of the model on the HPO val set ... ")
 	predictions = model.transform(validation_set_dataframe_for_hpo)
-	evaluator = BinaryClassificationEvaluator(metricName='areaUnderROC')
+	if metric:
+		evaluator = RegressionEvaluator(metricName=metric)
+	else:
+		evaluator = RegressionEvaluator()
 	evaluator.setLabelCol(f"{label_column_name}")
 	aucroc = evaluator.evaluate(predictions)
 	print(f"The AUC error on the val set with a step for feature selection is : {aucroc}")
@@ -397,18 +400,10 @@ best_model = best_pipeline.fit(full_train_set_dataframe)
 # Evaluate the model 
 logging.info("AutoML : Evaluating the performance of the best model on the test set ... ")
 predictions = best_model.transform(test_set_dataframe)
-if task == "classification":
-	if metric:
-		evaluator = BinaryClassificationEvaluator(metricName=metric)
-	else:
-		evaluator = BinaryClassificationEvaluator()
-elif task == "multiclass_classification":
-	if metric:
-		evaluator = MulticlassClassificationEvaluator(metricName=metric)
-	else:
-		evaluator = MulticlassClassificationEvaluator()
+if metric:
+	evaluator = RegressionEvaluator(metricName=metric)
 else:
-	raise ValueError
+	evaluator = RegressionEvaluator()
 evaluator.setLabelCol(f"{label_column_name}")
 aucroc_on_test = evaluator.evaluate(predictions)
 

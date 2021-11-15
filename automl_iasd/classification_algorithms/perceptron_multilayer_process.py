@@ -277,7 +277,7 @@ features_to_define = [feature for feature in full_train_set_dataframe_with_selec
 
 print(features_to_define)
 
-feature_definitions = [FeatureDefinition(x[0],FeatureTypeEnum("Fractional")) if x[1] in ["double","float"] else FeatureDefinition(x[0],FeatureTypeEnum("Integer")) if x[1] in ["int"] else FeatureDefinition(x[0],FeatureTypeEnum("String")) for x in features_to_define]
+feature_definitions = [FeatureDefinition(x[0],FeatureTypeEnum("Fractional")) if x[1] in ["double","float"] else FeatureDefinition(x[0],FeatureTypeEnum("Integral")) if x[1] in ["int"] else FeatureDefinition(x[0],FeatureTypeEnum("String")) for x in features_to_define]
 
 feature_definitions.append(FeatureDefinition(f"{dataset}ID", FeatureTypeEnum("String")))
 feature_definitions.append(FeatureDefinition(f"EventTime", FeatureTypeEnum("String")))
