@@ -345,7 +345,7 @@ def train_fm_regression(regParam, initStd):
 		evaluator = RegressionEvaluator()
 	evaluator.setLabelCol(f"{label_column_name}")
 	aucroc = evaluator.evaluate(predictions)
-	print(f"The AUC error on the val set with a step for feature selection is : {aucroc}")
+	print(f"The error on the val set with a step for feature selection is : {aucroc}")
 	return model, aucroc
 
 

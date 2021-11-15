@@ -3,13 +3,6 @@ import findspark
 findspark.init()
 from pyspark.sql import SparkSession
 from pyspark.ml.regression import GeneralizedLinearRegression 
-from automl_iasd.feature_engineering.util import get_max_count_distinct
-from automl_iasd.data_preprocessing.util import get_numerical_columns_with_missing_values, get_categorical_columns_with_missing_values, get_categorical_columns, get_numerical_columns
-from automl_iasd.data_preprocessing.cleaning import fill_missing_values, remove_outliers
-from automl_iasd.data_preprocessing.encode import encode_categorical_features
-from automl_iasd.data_preprocessing.scaling  import normalize, standardize
-from automl_iasd.feature_engineering.transformations  import apply_discretization, apply_polynomial_expansion, apply_binary_transformation, apply_group_by_then_transformation, create_features_column
-from automl_iasd.feature_engineering.selection  import nrpa_feature_selector
 from pyspark.ml.evaluation import RegressionEvaluator
 from hyperopt import fmin, tpe, hp, Trials, STATUS_OK
 from hyperopt.pyll import scope
@@ -34,7 +27,19 @@ import sagemaker
 from sagemaker.session import Session
 from sagemaker.feature_store.feature_group import FeatureGroup
 from sagemaker.feature_store.feature_definition import FeatureDefinition, FeatureTypeEnum
-from itertools import chain
+
+spark = SparkSession.builder.config('spark.hadoop.fs.s3a.access.key', AWS_ACCESS_KEY).config('spark.hadoop.fs.s3a.secret.key', AWS_SECRET_KEY).getOrCreate()
+spark.sparkContext.addPyFile("../dist/automl-iasd-0.1.0.tar")
+spark.sparkContext.setLogLevel("ERROR")
+
+from automl_iasd.feature_engineering.util import get_max_count_distinct
+from automl_iasd.data_preprocessing.util import get_numerical_columns_with_missing_values, get_categorical_columns_with_missing_values, get_categorical_columns, get_numerical_columns
+from automl_iasd.data_preprocessing.cleaning import fill_missing_values, remove_outliers
+from automl_iasd.data_preprocessing.encode import encode_categorical_features
+from automl_iasd.data_preprocessing.scaling  import normalize, standardize
+from automl_iasd.feature_engineering.transformations  import apply_discretization, apply_polynomial_expansion, apply_binary_transformation, apply_group_by_then_transformation, create_features_column
+from automl_iasd.feature_engineering.selection  import nrpa_feature_selector
+
 
 # Get arguments for process
 dataset = sys.argv[1]
@@ -51,10 +56,6 @@ AWS_SECRET_KEY = sys.argv[11]
 
 # AWS_ACCESS_KEY = os.getenv('AWS_ACCESS_KEY')
 # AWS_SECRET_KEY = os.getenv('AWS_SECRET_KEY')
-
-spark = SparkSession.builder.config('spark.hadoop.fs.s3a.access.key', AWS_ACCESS_KEY).config('spark.hadoop.fs.s3a.secret.key', AWS_SECRET_KEY).getOrCreate()
-spark.sparkContext.addPyFile("../dist/automl-iasd-0.1.0.tar")
-spark.sparkContext.setLogLevel("ERROR")
 
 # Set metric
 if metric == "None":
@@ -341,7 +342,7 @@ def train_generalized_linear_regression(regParam):
 		evaluator = RegressionEvaluator()
 	evaluator.setLabelCol(f"{label_column_name}")
 	aucroc = evaluator.evaluate(predictions)
-	print(f"The AUC error on the val set with a step for feature selection is : {aucroc}")
+	print(f"The error on the val set with a step for feature selection is : {aucroc}")
 	return model, aucroc
 
 
@@ -420,7 +421,7 @@ logging.info(f"The accuracy on the test set is : {aucroc_on_test}")
 # Send the metrics and model
 s3 = boto3.client('s3')
 json_object = {"Algorithm" : "GeneralizedLinearRegression",
-	"aucroc_on_test": aucroc_on_test
+	"error_on_test": aucroc_on_test
 }
 # We put the metrics found in a file
 s3.put_object(

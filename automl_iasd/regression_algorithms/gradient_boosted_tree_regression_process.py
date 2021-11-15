@@ -351,7 +351,7 @@ def train_gradient_boosted_tree(minWeightFractionPerNode, minInstancesPerNode, m
 		evaluator = RegressionEvaluator()
 	evaluator.setLabelCol(f"{label_column_name}")
 	aucroc = evaluator.evaluate(predictions)
-	print(f"The AUC error on the val set with a step for feature selection is : {aucroc}")
+	print(f"The error on the val set with a step for feature selection is : {aucroc}")
 	return model, aucroc
 
 def train_with_hyperopt(params):
@@ -430,12 +430,12 @@ else:
 evaluator.setLabelCol(f"{label_column_name}")
 aucroc_on_test = evaluator.evaluate(predictions)
 
-logging.info(f"The accuracy on the test set is : {aucroc_on_test}")
+logging.info(f"The error on the test set is : {aucroc_on_test}")
 
 # Send the metrics and model
 s3 = boto3.client('s3')
 json_object = {"Algorithm" : "GradientBoostedTreeRegression",
-	"aucroc_on_test": aucroc_on_test
+	"error_on_test": aucroc_on_test
 }
 # We put the metrics found in a file
 s3.put_object(

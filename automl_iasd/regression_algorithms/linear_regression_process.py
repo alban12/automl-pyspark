@@ -341,7 +341,7 @@ def train_linear_regression(regParam, elasticNetParam):
 		evaluator = RegressionEvaluator()
 	evaluator.setLabelCol(f"{label_column_name}")
 	aucroc = evaluator.evaluate(predictions)
-	print(f"The AUC error on the val set with a step for feature selection is : {aucroc}")
+	print(f"The error on the val set with a step for feature selection is : {aucroc}")
 	return model, aucroc
 
 
@@ -422,7 +422,7 @@ logging.info(f"The accuracy on the test set is : {aucroc_on_test}")
 # Send the metrics and model
 s3 = boto3.client('s3')
 json_object = {"Algorithm" : "LinearRegression",
-	"aucroc_on_test": aucroc_on_test
+	"error_on_test": aucroc_on_test
 }
 # We put the metrics found in a file
 s3.put_object(
