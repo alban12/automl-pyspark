@@ -29,7 +29,7 @@ model_path = sys.argv[5]
 
 # Set up session
 spark = SparkSession.builder.getOrCreate()
-spark.sparkContext.addPyFile("./automl-iasd-0.1.0.tar.gz")
+spark.sparkContext.addPyFile("../automl_functions_package.py")
 
 # Load the dataset
 dataframe = spark.read.parquet(f"{data_path}")
@@ -193,7 +193,7 @@ def train_with_hyperopt(params):
 
 space = {
   'regParam': hp.uniform('regParam', 0.0, 0.03*float(budget)),
-  'factorSize' : scope.int(hp.uniform('regParam', 6, 10)),
+  'factorSize' : scope.int(hp.uniform('factorSize', 6, 10)),
   'solver': hp.choice('solver', ["adamW","gd"]),
 }
 
@@ -215,7 +215,7 @@ factorSize = int(best_params["factorSize"])
 
 
 # Now we retrain the model fully 
-best_factorization_machines = FMClassifier(regParam=best_params["regParam"], factorSize=best_params["elasticNetParam"])
+best_factorization_machines = FMClassifier(regParam=best_params["regParam"], factorSize=factorSize, solver=solver)
 best_factorization_machines.setFeaturesCol(f"selectedFeatures")
 best_factorization_machines.setLabelCol(f"{label_column_name}")
 best_stages = auto_fe_stages.copy()

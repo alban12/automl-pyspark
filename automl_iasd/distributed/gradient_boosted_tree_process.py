@@ -3,13 +3,13 @@ import findspark
 findspark.init()
 from pyspark.sql import SparkSession
 from pyspark.ml.classification import GBTClassifier 
-from automl_iasd.feature_engineering.util import get_max_count_distinct
-from automl_iasd.feature_processing.util import get_numeric_columns_with_null_values, get_categorical_columns_with_null_values, get_categorical_columns, get_numeric_columns
-from automl_iasd.feature_processing.cleaning import fill_missing_values, remove_outliers
-from automl_iasd.feature_processing.encode import encode_categorical_features
-from automl_iasd.feature_processing.scaling import normalize, standardize
-from automl_iasd.feature_engineering.transformations import apply_discretization, apply_polynomial_expansion, apply_binary_transformation, apply_group_by_then_transformation, create_features_column
-from automl_iasd.feature_engineering.selection import nrpa_feature_selector
+from automl_functions_package import get_max_count_distinct
+from automl_functions_package import get_numeric_columns_with_null_values, get_categorical_columns_with_null_values, get_categorical_columns, get_numeric_columns
+from automl_functions_package import fill_missing_values, remove_outliers
+from automl_functions_package import encode_categorical_features
+from automl_functions_package import normalize, standardize
+from automl_functions_package import apply_discretization, apply_polynomial_expansion, apply_binary_transformation, apply_group_by_then_transformation, create_features_column
+from automl_functions_package import nrpa_feature_selector
 from pyspark.ml.evaluation import BinaryClassificationEvaluator
 from hyperopt import fmin, tpe, hp, Trials, STATUS_OK
 from hyperopt.pyll import scope
@@ -29,7 +29,7 @@ model_path = sys.argv[5]
 
 # Set up session
 spark = SparkSession.builder.getOrCreate()
-spark.sparkContext.addPyFile("./automl-iasd-0.1.0.tar.gz")
+spark.sparkContext.addPyFile("../automl_functions_package.py")
 
 # Load the dataset
 dataframe = spark.read.parquet(f"{data_path}")

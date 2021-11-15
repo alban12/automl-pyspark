@@ -4,10 +4,10 @@ findspark.init()
 from pyspark.sql import SparkSession
 from pyspark.ml.classification import RandomForestClassifier 
 from automl_iasd.feature_engineering.util import get_max_count_distinct
-from automl_iasd.feature_processing.util import get_numeric_columns_with_null_values, get_categorical_columns_with_null_values, get_categorical_columns, get_numeric_columns
-from automl_iasd.feature_processing.cleaning import fill_missing_values, remove_outliers
-from automl_iasd.feature_processing.encode import encode_categorical_features
-from automl_iasd.feature_processing.scaling import normalize, standardize
+from automl_iasd.data_preprocessing.util import get_numeric_columns_with_null_values, get_categorical_columns_with_null_values, get_categorical_columns, get_numeric_columns
+from automl_iasd.data_preprocessing.cleaning import fill_missing_values, remove_outliers
+from automl_iasd.data_preprocessing.encode import encode_categorical_features
+from automl_iasd.data_preprocessing.scaling import normalize, standardize
 from automl_iasd.feature_engineering.transformations import apply_discretization, apply_polynomial_expansion, apply_binary_transformation, apply_group_by_then_transformation, create_features_column
 from automl_iasd.feature_engineering.selection import nrpa_feature_selector
 from pyspark.ml.evaluation import BinaryClassificationEvaluator
@@ -54,6 +54,13 @@ def generate_best_feature_subset(full_train_set_dataframe, label_column_name, ta
 	pipeline_stages = []
 	budget = int(budget)
 
+	label_column_is_string = False
+
+	for column in train_set_dataframe_for_selection.dtypes:
+		if column[0] == label_column_name and column[1] == 'string':
+			label_column_name = True
+
+
 	logging.info("AutoFE : Data preprocessing - Performing eventual missing values imputation ... ")
 	numeric_column_with_null_value = get_numeric_columns_with_null_values(train_set_dataframe_for_selection)
 	categorical_column_with_null_value = get_categorical_columns_with_null_values(train_set_dataframe_for_selection)
@@ -69,7 +76,10 @@ def generate_best_feature_subset(full_train_set_dataframe, label_column_name, ta
 	categorical_columns = get_categorical_columns(train_set_dataframe_for_selection)
 	numerical_columns = get_numeric_columns(train_set_dataframe_for_selection)
 	# Remove the label from the columns processed
-	numerical_columns.remove(label_column_name)
+	if label_column_is_string:
+		categorical_columns.remove(label_column_name)
+	else:
+		numerical_columns.remove(label_column_name)
 	# Recompute the set of usable features
 	categorical_columns_to_encode = list(set(categorical_columns) - set(categorical_column_with_null_value))
 	numerical_columns_without_null_value = list(set(numerical_columns) - set(numeric_column_with_null_value))
@@ -124,19 +134,16 @@ def generate_best_feature_subset(full_train_set_dataframe, label_column_name, ta
 	validation_set_dataframe_for_selection.cache()
 
 	labelIndexer = StringIndexer(inputCol=f"{label_column_name}", outputCol="indexedLabel")
-
 	li_tr = labelIndexer.fit(train_set_dataframe_for_selection)
 	li_va = labelIndexer.fit(validation_set_dataframe_for_selection)
 	train_set_dataframe_for_selection = li_tr.transform(train_set_dataframe_for_selection) 
 	validation_set_dataframe_for_selection = li_va.transform(validation_set_dataframe_for_selection)
-
+	pipeline_stages.append(labelIndexer)
 
 	algorithm = RandomForestClassifier()
 	algorithm_name = str(algorithm).split("_")[0]
-	algorithm.setLabelCol(f"{label_column_name}")
-	classification_algorithms_stages[algorithm_name].append(labelIndexer)
-	algorithm.setLabelCol("indexedLabel")
 	maximum_number_of_categories = get_max_count_distinct(train_set_dataframe_for_selection, categorical_columns_to_encode)
+	algorithm.setLabelCol("indexedLabel")
 	algorithm.setMaxBins(maximum_number_of_categories)
 
 	selection_initial_uniform_policy = [0.5 for _ in range(2*len(columns_to_featurized))]
