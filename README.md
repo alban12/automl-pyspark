@@ -84,3 +84,4 @@ python AutoML-IASD/automl_controller_process.py\
 
 ## Licence
 
+Apache License 2.0
