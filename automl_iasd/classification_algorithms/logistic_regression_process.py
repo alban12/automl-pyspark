@@ -10,7 +10,7 @@ from automl_iasd.data_preprocessing.encode import encode_categorical_features
 from automl_iasd.data_preprocessing.scaling  import normalize, standardize
 from automl_iasd.feature_engineering.transformations  import apply_discretization, apply_polynomial_expansion, apply_binary_transformation, apply_group_by_then_transformation, create_features_column
 from automl_iasd.feature_engineering.selection  import nrpa_feature_selector
-from pyspark.ml.evaluation import RegressionEvaluator
+from pyspark.ml.evaluation import BinaryClassificationEvaluator
 from hyperopt import fmin, tpe, hp, Trials, STATUS_OK
 from hyperopt.pyll import scope
 from pyspark.ml.feature import VectorSlicer, VectorIndexer, StringIndexer
@@ -325,10 +325,7 @@ def train_logistic_regression(regParam, elasticNetParam):
 
 	logging.info("AutoML : Evaluating the performance of the model on the HPO val set ... ")
 	predictions = model.transform(validation_set_dataframe_for_hpo)
-	if metric:
-		evaluator = RegressionEvaluator(metricName=metric)
-	else:
-		evaluator = RegressionEvaluator()
+	evaluator = BinaryClassificationEvaluator(metricName='areaUnderROC')
 	evaluator.setLabelCol(f"{label_column_name}")
 	aucroc = evaluator.evaluate(predictions)
 	print(f"The AUC error on the val set with a step for feature selection is : {aucroc}")
@@ -400,10 +397,18 @@ best_model = best_pipeline.fit(full_train_set_dataframe)
 # Evaluate the model 
 logging.info("AutoML : Evaluating the performance of the best model on the test set ... ")
 predictions = best_model.transform(test_set_dataframe)
-if metric:
-	evaluator = RegressionEvaluator(metricName=metric)
+if task == "classification":
+	if metric:
+		evaluator = BinaryClassificationEvaluator(metricName=metric)
+	else:
+		evaluator = BinaryClassificationEvaluator()
+elif task == "multiclass_classification":
+	if metric:
+		evaluator = MulticlassClassificationEvaluator(metricName=metric)
+	else:
+		evaluator = MulticlassClassificationEvaluator()
 else:
-	evaluator = RegressionEvaluator()
+	raise ValueError
 evaluator.setLabelCol(f"{label_column_name}")
 aucroc_on_test = evaluator.evaluate(predictions)
 
