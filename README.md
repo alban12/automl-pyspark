@@ -8,7 +8,7 @@ There are currently 3 scenarios while using the project :
 - You run the tool on your local computer and the ressources are stored on it. (WIP)
 - You run the tool on a cluster and the ressources are stored on AWS.
 
-  The following installation part are to be run on the computer launching the task (i.e your local computer or the master node on a cluster)
+  The following installation part are to be run on the computer launching the task (i.e. your local computer or the master node on a cluster)
 ---
 
 ## Installation
@@ -94,6 +94,10 @@ python AutoML-IASD/automl_controller_process.py\
 	--bucket_name=my_bucket_for_automl\
 	--training_only=True\
 ```
+
+### Building S3 project structure 
+
+Assuming that you have your data load locally or an URL to get it. You can use the script `build_dataset_structure.py` to initialise the project in S3. 
 
 ## Licence
 
