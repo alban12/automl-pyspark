@@ -97,7 +97,15 @@ python AutoML-IASD/automl_controller_process.py\
 
 ### Building S3 project structure 
 
-Assuming that you have your data load locally or an URL to get it. You can use the script `build_dataset_structure.py` to initialise the project in S3. 
+Assuming that you have your `house-prices`data load locally or an URL to get it. You can use the script `build_dataset_structure.py` to initialise the project in S3. 
+You would run 
+```bash
+python AutoML-IASD/automl_controller_process.py\ 
+	--dataset_name=house-prices\
+	--trainset_path=/my/path/to/house-prices-train.parquet\
+	--testset_path=/my/path/to/house-prices-train/parquet\
+	--bucket_name=my_bucket_for_automl\
+```
 
 ## Licence
 
