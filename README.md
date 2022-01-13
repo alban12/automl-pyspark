@@ -71,6 +71,18 @@ And it has 7 optional arguments :
 
 ## Usage scenario 
 
+### Building S3 project structure (Optional)
+
+Assuming that you have your `house-prices`data load locally or an URL to get it. You can use the script `build_dataset_structure.py` to initialise the project in S3. 
+You would run 
+```bash
+python AutoML-IASD/automl_controller_process.py\ 
+	--dataset_name=house-prices\
+	--trainset_path=/my/path/to/house-prices-train.parquet\
+	--testset_path=/my/path/to/house-prices-train/parquet\
+	--bucket_name=my_bucket_for_automl\
+```
+
 ### Classification 
 Assuming that you have your data stored on S3 and that you are in the main folder and that you want to predict the `Delay` for the `airlines` dataset, you can then run it with : 
 
@@ -93,18 +105,6 @@ python AutoML-IASD/automl_controller_process.py\
 	--task=regression\ 
 	--bucket_name=my_bucket_for_automl\
 	--training_only=True\
-```
-
-### Building S3 project structure 
-
-Assuming that you have your `house-prices`data load locally or an URL to get it. You can use the script `build_dataset_structure.py` to initialise the project in S3. 
-You would run 
-```bash
-python AutoML-IASD/automl_controller_process.py\ 
-	--dataset_name=house-prices\
-	--trainset_path=/my/path/to/house-prices-train.parquet\
-	--testset_path=/my/path/to/house-prices-train/parquet\
-	--bucket_name=my_bucket_for_automl\
 ```
 
 ## Licence
