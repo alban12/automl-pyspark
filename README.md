@@ -76,10 +76,12 @@ And it has 7 optional arguments :
 Assuming that you have your `house-prices`data load locally or an URL to get it. You can use the script `build_dataset_structure.py` to initialise the project in S3. 
 You would run 
 ```bash
-python AutoML-IASD/automl_controller_process.py\ 
+spark-submit --driver-memory 14\
+	--packages org.apache.hadoop:hadoop-aws:3.1.2\
+	--name build_structure tools/build_dataset_structure.py\ 
 	--dataset_name=house-prices\
-	--trainset_path=/my/path/to/house-prices-train.parquet\
-	--testset_path=/my/path/to/house-prices-train/parquet\
+	--trainset_path=/my/path/to/house-prices-train.csv\
+	--testset_path=/my/path/to/house-prices-test.csv\
 	--bucket_name=my_bucket_for_automl\
 ```
 
