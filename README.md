@@ -43,7 +43,7 @@ If you run the tool on a EMR cluster, you will have to make sure you include as 
 
 This will ensure that all dependencies are installed on all workers. 
 
-Once, the cluster is running. You will need to connect to it through `ssh` and you can then clone this repository. 
+Once, the cluster is running. You will need to connect to it through `ssh`. Once you are connected to the master node, you can clone the project and follow the steps provided in the installation part (i.e. installing dependencies with `poetry install`) 
 
 ## Usage
 
