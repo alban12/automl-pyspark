@@ -8,7 +8,7 @@ There are currently 3 scenarios while using the project :
 - You run the tool on your local computer and the ressources are stored on it. (WIP)
 - You run the tool on a cluster and the ressources are stored on AWS.
 
-  The following installation part are to be run on the computer launching the task (i.e. your local computer or the master node on a cluster)
+  The following installation parts are to be run on the computer launching the task (i.e. your local computer or the master node on a cluster)
 ---
 
 ## Installation
