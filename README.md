@@ -1,6 +1,6 @@
 ![image info](./assets/homepage.png) 
 
-A distributed AutoML system for the IASD master's thesis module in apprenticeship.
+A distributed AutoML system for the IASD master's in apprenticeship thesis module.
 
 ## Installation
 
