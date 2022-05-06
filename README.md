@@ -70,7 +70,7 @@ python AutoML-IASD/automl_controller_process.py\
 	--budget=2
 ```
 
-Now if you wanted to predict the SalePrice for the `HousePrice` dataset, you would run : 
+Now, if you wanted to predict the SalePrice for the `HousePrice` dataset, you would run : 
 
 ```bash
 python AutoML-IASD/automl_controller_process.py\ 
