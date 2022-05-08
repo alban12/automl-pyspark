@@ -39,7 +39,7 @@ Once, the cluster is running. You will need to connect to it through `ssh` and y
 
 ## Usage
 
-To use the project, you will first need to get on an appropriate virtual environment. This can be done with the following command : 
+To use the project, you will first need to get set an appropriate virtual environment. This can be done with the following command : 
 
 ```bash
 poetry shell 
