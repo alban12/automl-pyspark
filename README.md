@@ -17,35 +17,33 @@ poetry install
 ```
 
 There are 3 scenarios while using the project : 
-- You run the tool on your local computer and the ressources are stored on AWS.
-- You run the tool on your local computer and the ressources are stored on it. (In development)
-- You run the tool on a cluster and the ressources are stored on AWS.
+- You run the tool on your local computer and the datasets are stored on AWS.
+- You run the tool on your local computer and the datasets are stored on it. (In development)
+- You run the tool on a cluster and the datasets are stored on AWS.
 
-If you want to run the tool from your local computer, you will have to download Apache Hadoop and Apache Spark. 
+If you want to run the tool from your local computer, you will need to make your computer act like a single node cluster, for which, you will have to download Apache Hadoop and Apache Spark. 
 
 Apache Spark can be installed pretty straightforwardly with pip : `pip install pyspark`.
 
 Installing Hadoop will depend on your operating system.
 
-You will then need to set up your computer as a [single node cluster](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/SingleCluster.html).
+You can then set up your computer as a [single node cluster](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/SingleCluster.html).
 
-You will need to set your AWS_ACCESS_KEY and AWS_SECRET_KEY as environment variables and create a bucket to contain the dataset.
+In order to connect with the AWS resources, you will need to set your AWS_ACCESS_KEY and AWS_SECRET_KEY as environment variables and create a bucket to contain the datasets.
 
-If you run the tool on a EMR cluster, you will have to make sure you include as a bootstrap action, the file : `automl-iasd\cloud-deployment\init_cluster.sh`
+If choose to run the tool on a EMR cluster, you should pick as a software configuration : (Release: `emr-5.35.0`, Applications: `Spark: Spark 2.4.8 on Hadoop 2.10.1 YARN and Zeppelin 0.10.0`). Then, you will have to make sure you include, as a bootstrap action, the file : `automl-iasd\cloud-deployment\init_cluster.sh`. This will ensure that all dependencies are installed on each workers so the tool can dispatch load between each nodes. 
 
-This will ensure that all dependencies are installed on all workers. 
-
-Once, the cluster is running. You will need to connect to it through `ssh` and you can then clone this repository. 
+Once, the cluster is running. You will need to connect to it through `ssh`. Once it is done, all required softwares should be installed so you can clone this repository. 
 
 ## Usage
 
-To use the project, you will first need to get set an appropriate virtual environment. This can be done with the following command : 
+To use the project to work on a dataset, you will first need to get set an appropriate virtual environment. This can be done with the following command : 
 
 ```bash
 poetry shell 
 ```
 
-The tool is launched from the `automl_controller_process.py` script.
+The tool is then launched from the `automl_controller_process.py` script.
 It has 4 mandatory arguments : 
 - dataset : Which is the name of the dataset set in the AWS bucket.
 - label_column_name : Which is the name of column to predict in that label
