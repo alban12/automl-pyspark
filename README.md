@@ -33,7 +33,8 @@ In order to connect with the AWS resources, you will need to set your AWS_ACCESS
 
 If choose to run the tool on a EMR cluster, you should pick as a software configuration : (Release: `emr-5.35.0`, Applications: `Spark: Spark 2.4.8 on Hadoop 2.10.1 YARN and Zeppelin 0.10.0`). Then, you will have to make sure you include, as a bootstrap action, the file : `automl-iasd\cloud-deployment\init_cluster.sh`. This will ensure that all dependencies are installed on each workers so the tool can dispatch load between each nodes. 
 
-Once, the cluster is running. You will need to connect to it through `ssh`. Once it is done, all required softwares should be installed so you can clone this repository. 
+Once, the cluster is running. You will need to connect to it through `ssh`. 
+Once it is done, all required softwares should be installed so you can clone this repository. 
 
 ## Usage
 
