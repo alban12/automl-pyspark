@@ -18,7 +18,7 @@ poetry install
 
 There are 3 scenarios while using the project : 
 - You run the tool on your local computer and the datasets are stored on AWS.
-- You run the tool on your local computer and the datasets are stored on it. (In development)
+- You run the tool on your local computer and the datasets are stored on it. (WIP)
 - You run the tool on a cluster and the datasets are stored on AWS.
 
 If you want to run the tool from your local computer, you will need to make your computer act like a single node cluster, for which, you will have to download Apache Hadoop and Apache Spark. 
