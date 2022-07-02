@@ -49,7 +49,7 @@ It has 4 mandatory arguments :
 - dataset : Which is the name of the dataset set in the AWS bucket.
 - label_column_name : Which is the name of column to predict in that label
 - task : Which is the type of task to perform ("classification", "multiclass_classification", "regression")
-- bucket_name :Which is the name of the bucket that contains the dataset and that will hold the results.
+- bucket_name : Which is the name of the bucket that contains the dataset and that will hold the results.
 
 And it has 7 optional arguments : 
 - budget : which is the budget allocate to the search of the best model. (default is 3)
