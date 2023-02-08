@@ -1,6 +1,6 @@
 ![image info](./assets/homepage.png) 
 
-A distributed AutoML system for my thesis module.
+A distributed AutoML system for the [IASD](https://www.lamsade.dauphine.fr/wp/iasd/en/) thesis module.
 
 ## Installation
 
