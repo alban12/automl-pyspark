@@ -2,18 +2,28 @@ import pyspark.sql.functions as F
 from pyspark.sql.functions import monotonically_increasing_id
 
 def get_numerical_columns_with_missing_values(dataframe):
-	"""Return the numeric columns wiht null values."""
+	"""Return the numeric columns with null values."""
 	# Count the number of null in each columns 
-	null_counts = dataframe.select([F.count(F.when(F.col(c[0]).isNull() | F.isnan(F.col(c[0])) | F.col(c[0]).contains('?') | F.col(c[0]).contains('None')| F.col(c[0]).contains('Null') | (F.col(c[0]) == ''), c[0])).alias(c[0]) for c in dataframe.dtypes if c[1].startswith('double') or c[1].startswith('int')]).collect()[0].asDict()
+	null_counts = dataframe.select([F.count(F.when(F.col(c[0]).isNull() | F.isnan(F.col(c[0])), 1)).alias(c[0]) for c in dataframe.dtypes if c[1].startswith('double') or c[1].startswith('int')]).collect()[0].asDict()
 	numeric_columns_with_nulls = [k for k, v in null_counts.items() if v > 0]
 	return numeric_columns_with_nulls
 
 def get_categorical_columns_with_missing_values(dataframe):
-	"""Return the numeric columns wiht null values."""
+	"""Return the categorical columns with null values."""
 	# Count the number of null in each columns 
-	null_counts = dataframe.select([F.count(F.when(F.col(c[0]).isNull() | F.isnan(F.col(c[0])) | F.col(c[0]).contains('?') | F.col(c[0]).contains('None')| F.col(c[0]).contains('Null') | (F.col(c[0]) == ''), c[0])).alias(c[0]) for c in dataframe.dtypes if c[1].startswith('string') or c[1].startswith('bool')]).collect()[0].asDict()
-	numeric_columns_with_nulls = [k for k, v in null_counts.items() if v > 0]
-	return numeric_columns_with_nulls
+	expressions = []
+	for name, dtype in dataframe.dtypes:
+		if dtype.startswith('string'):
+			expressions.append(F.count(F.when(F.col(name).isNull() | F.col(name).contains('?') | F.col(name).contains('None')| F.col(name).contains('Null') | (F.col(name) == ''), 1)).alias(name))
+		elif dtype.startswith('bool'):
+			expressions.append(F.count(F.when(F.col(name).isNull(), 1)).alias(name))
+
+	if not expressions:
+		return []
+
+	null_counts = dataframe.select(expressions).collect()[0].asDict()
+	categorical_columns_with_nulls = [k for k, v in null_counts.items() if v > 0]
+	return categorical_columns_with_nulls
 
 
 def get_most_frequent_feature_value(dataframe, column_name):
