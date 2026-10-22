@@ -392,12 +392,19 @@ numerical_columns = get_numerical_columns(full_train_set_dataframe)
 ## Save metafeatures 
 with mlflow.start_run():
 	logging.info("AutoML : Meta-features - Computing Kurtosis and skewness for numerical features ... ")
-	for i, numerical_feature in enumerate(numerical_columns):
-		# Compute asymetrie coefficient
-		mlflow.log_metric(f"{numerical_feature}_skewness", full_train_set_dataframe_with_selection.agg(skewness(full_train_set_dataframe_with_selection[numerical_feature])).collect()[0][0])
-		# Compute asymetrie coefficient
-		mlflow.log_metric(f"{numerical_feature}_kurtosis", full_train_set_dataframe_with_selection.agg(kurtosis(full_train_set_dataframe_with_selection[numerical_feature])).collect()[0][0])
-		# Compute asymetrie coefficient
+
+	# Consolidate all skewness and kurtosis computations into a single Spark pass
+	agg_exprs = []
+	for feature in numerical_columns:
+		agg_exprs.append(skewness(full_train_set_dataframe_with_selection[feature]).alias(f"{feature}_skewness"))
+		agg_exprs.append(kurtosis(full_train_set_dataframe_with_selection[feature]).alias(f"{feature}_kurtosis"))
+
+	if agg_exprs:
+		metrics_row = full_train_set_dataframe_with_selection.agg(*agg_exprs).collect()[0]
+		for feature in numerical_columns:
+			mlflow.log_metric(f"{feature}_skewness", metrics_row[f"{feature}_skewness"])
+			mlflow.log_metric(f"{feature}_kurtosis", metrics_row[f"{feature}_kurtosis"])
+
 	logging.info("AutoML : Meta-features - Computing features correlation ... ")
 	r1 = Correlation.corr(full_train_set_dataframe_with_selection, "selectedFeatures").head()
 	mlflow.log_param(f"{dataset}_Pearson_correlation_matrix", str(r1[0]))
