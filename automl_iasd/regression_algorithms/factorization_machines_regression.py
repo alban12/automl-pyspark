@@ -4,7 +4,7 @@ findspark.init()
 from pyspark.sql import SparkSession
 from pyspark.ml.regression import FMRegressor 
 from pyspark.ml.evaluation import RegressionEvaluator
-from hyperopt import fmin, tpe, hp, Trials, STATUS_OK
+from hyperopt import fmin, tpe, hp, STATUS_OK
 from hyperopt.pyll import scope
 from pyspark.ml.feature import VectorSlicer, VectorIndexer, StringIndexer
 from pyspark.ml import Pipeline
