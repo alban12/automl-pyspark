@@ -62,7 +62,7 @@ def executeThread(app_name, spark_submit_cmd, error_log_dir,
         max_wait_time_job_start_s = 0):
 	"""Launch the execution of a thread given a spark-submit command."""
 	logging.info(f"Executing thread for {app_name}")
-	cmd_output = subprocess.Popen(spark_submit_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+	cmd_output = subprocess.Popen(spark_submit_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 	for line in cmd_output.stdout:
 		print(line)
 	cmd_output.communicate()
@@ -151,20 +151,34 @@ def distribute_algorithms(dataset, label_column_name, task, metric, budget, trai
 	automl_instance_model_path = f"{dataset}/models/{process_instance_name}"
  
 	# Download s3a dependency and set the drviver memory if the program is not a run on an AWS cluster
-	s3a_download = ""
-	driver_memory = ""
+	s3a_download = []
+	driver_memory = []
 	if not(on_aws_cluster):
-		s3a_download = f"--packages org.apache.hadoop:hadoop-aws:{spark_version}"
-		driver_memory = f"--driver-memory {usable_memory}"
+		s3a_download = ["--packages", f"org.apache.hadoop:hadoop-aws:{spark_version}"]
+		driver_memory = ["--driver-memory", str(usable_memory)]
 
 	# Create the appropriate spark-submit command for each algorithm
 	dict_spark_submit_cmds = dict()
 	for i in range(len(algorithms)):
-	    spark_submit_cmd = f"spark-submit {driver_memory} {s3a_download} --name {app_names[i]}" \
-	    				f" --conf spark.yarn.dist.archives=../dist/automl-iasd-0.1.0.tar" \
-	    				f"{task}_algorithms/{algorithms[i]}_process.py {dataset} {label_column_name}" \
-	    				f"{task} {metric} {budget} {automl_instance_model_path} {training_only}" \
-	    				f" {bucket_name} {iam_role} {AWS_ACCESS_KEY} {AWS_SECRET_KEY}"
+	    spark_submit_cmd = [
+	        "spark-submit",
+	        *driver_memory,
+	        *s3a_download,
+	        "--name", str(app_names[i]),
+	        "--conf", "spark.yarn.dist.archives=../dist/automl-iasd-0.1.0.tar",
+	        f"{task}_algorithms/{algorithms[i]}_process.py",
+	        str(dataset),
+	        str(label_column_name),
+	        str(task),
+	        str(metric),
+	        str(budget),
+	        str(automl_instance_model_path),
+	        str(training_only),
+	        str(bucket_name),
+	        str(iam_role),
+	        str(AWS_ACCESS_KEY),
+	        str(AWS_SECRET_KEY)
+	    ]
 	    dict_spark_submit_cmds[app_names[i]] = spark_submit_cmd
 
 	# Launch the threadPool 
